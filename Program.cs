@@ -211,8 +211,7 @@ static class Api
                 System.IO.File.Copy(src, dst, false);
                 return;
             }
-
-
+            
             System.IO.File.CreateSymbolicLink(dst, src);
         }
     }

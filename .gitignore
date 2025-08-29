@@ -1,0 +1,14 @@
+.idea/
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+FodyWeavers.xml
+FodyWeavers.xsd
+client-classes
+client.realm
+client.realm.lock
+*.user
+out

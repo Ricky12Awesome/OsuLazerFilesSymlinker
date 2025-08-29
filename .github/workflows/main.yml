@@ -6,6 +6,10 @@ on:
       - 'v*.*.*'
 
   workflow_dispatch: 
+    
+env: 
+  PROJECT_FILE: "OsuLazerFilesSymlinker.csproj"
+  VERSION: "v0.0.0"
 
 jobs:
   artifact:
@@ -41,12 +45,6 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         shell: bash
-        
-      - name: Get tag version
-        if: not(startsWith(github.ref, 'refs/tags/v')) # Use this if manual build
-        id: get_version
-        run: echo "VERSION=v0.0.0" >> $GITHUB_OUTPUT
-        shell: bash
 
       - name: Restore dependencies
         run: dotnet restore
@@ -54,7 +52,7 @@ jobs:
       - name: Build and Publish for ${{ matrix.job.rid }}
         shell: bash
         run: |
-          dotnet publish YourProjectName.csproj \
+          dotnet publish ${{ env.PROJECT_FILE }} \
             -c Release \
             -r ${{ matrix.job.rid }} \
             -o build/${{ matrix.job.rid }} \

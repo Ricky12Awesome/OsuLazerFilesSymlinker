@@ -40,13 +40,8 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      - name: Version defualt
-        id: get_version
-        run: echo "VERSION=v0.0.0" >> $GITHUB_OUTPUT
-        shell: bash
-
       - name: Set Version
-        if: startsWith(github.ref, 'refs/tags/v') # Ignore this job if I do manual build for testing
+#        if: startsWith(github.ref, 'refs/tags/v') # Ignore this job if I do manual build for testing
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
         shell: bash

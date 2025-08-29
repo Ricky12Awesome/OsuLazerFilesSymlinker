@@ -12,13 +12,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="CommandLineParser" Version="2.9.1" />
       <PackageReference Include="Realm" Version="20.1.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="out\" />
-      <Folder Include="out\-1\" />
+      <PackageReference Include="System.CommandLine" Version="2.0.0-beta7.25380.108" />
     </ItemGroup>
 
 </Project>

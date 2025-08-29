@@ -1,8 +1,8 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
+using System.CommandLine;
 using System.Runtime.InteropServices;
 using System.Text;
-using CommandLine;
 using Realms;
 
 // ReSharper disable InvertIf
@@ -64,9 +64,9 @@ static class Api
     public static Realm Realm { get; private set; } = null!;
     public static string LazerPath { get; private set; } = null!;
 
-    public static string OutPath { get; set; } = null!;
+    public static string OutPath { get; private set; } = null!;
 
-    public static void InitRealm(string? _lazerPath, string outPath)
+    public static void Init(string? _lazerPath, string outPath)
     {
         var lazerPath = _lazerPath ?? GetDefaultLazerPath();
         var realmPath = Path.Join(lazerPath, "client.realm");
@@ -220,45 +220,21 @@ static class Api
 
 internal static class Program
 {
-    private class Args
+    public class Args
     {
-        [Option('d', "dir", Required = false, HelpText = "lazer directory")]
-        public string LazerPath { get; private set; } = Api.GetDefaultLazerPath();
-
-        [Option('r', "replay", Required = false, HelpText = "replay filepath")]
-        public string? ReplayPath { get; private set; }
-
-        [Option('o', "output", Required = true, HelpText = "output directory")]
-        public string OutPath { get; private set; } = null!;
-
-        [Option('c', "copy", Required = false, HelpText = "copy instead of symlinks")]
-        public bool IsCopy { get; private set; }
-
-        [Option('a', "all", Required = false, HelpText = "symlink all beatmaps")]
-        public bool All { get; private set; }
-
-        [Option('v', "validate", Required = false, HelpText = "validate output directory files")]
-        public bool Validate { get; private set; }
-
-        [Option('h', "md5", Required = false, HelpText = "beatmap md5hash")]
-        public string? MD5Hash { get; private set; }
-
-        [Option('i', "id", Required = false, HelpText = "beatmap onlineid (not beatset)")]
-        public long OnlineID { get; private set; } = 0;
+        public required string LazerPath { get; init; }
+        public required string OutPath { get; init; }
+        public string? ReplayPath { get; init; }
+        public bool IsCopy { get; init; }
+        public bool All { get; init; }
+        public bool Validate { get; init; }
+        public string? MD5Hash { get; init; }
+        public long OnlineID { get; init; }
     }
 
-    public static void Main(string[] _args)
+    private static void Run(Args args)
     {
-        var parsed = Parser.Default.ParseArguments<Args>(_args);
-
-        if (parsed.Errors.Any())
-        {
-            throw new Exception(string.Join("\n", parsed.Errors));
-        }
-
-        var args = parsed.Value!;
-
-        Api.InitRealm(args.LazerPath, args.OutPath);
+        Api.Init(args.LazerPath, args.OutPath);
 
         if (args.Validate)
         {
@@ -290,5 +266,74 @@ internal static class Program
 
             Api.CreateLinks(beatmap, args.IsCopy);
         }
+    }
+
+    public static void Main(string[] _args)
+    {
+        RootCommand root = new();
+
+        Option<DirectoryInfo> lazerPath = new("--dir", "-d")
+        {
+            Description = "Path to lazer directory"
+        };
+        Option<FileInfo> replayPath = new("--replay", "-r")
+        {
+            Description = "Path to replay file"
+        };
+        Option<DirectoryInfo> outPath = new("--out", "-o")
+        {
+            Required = true,
+            Description = "Path to output directory"
+        };
+        Option<bool> isCopy = new("--copy", "-c")
+        {
+            Description = "copy instead of symlinks"
+        };
+        Option<bool> all = new("--all", "-a")
+        {
+            Description = "symlink all beatmaps"
+        };
+        Option<bool> validate = new("--validate", "-v")
+        {
+            Description = "validate symlinks in output directory"
+        };
+        Option<string> md5hash = new("--md5", "-m")
+        {
+            Description = "beatmap md5hash"
+        };
+        Option<long> onlineId = new("--id", "-i")
+        {
+            Description = "beatmap online id (not beatset)"
+        };
+
+        root.Options.Add(lazerPath);
+        root.Options.Add(outPath);
+        root.Options.Add(replayPath);
+        root.Options.Add(isCopy);
+        root.Options.Add(all);
+        root.Options.Add(validate);
+        root.Options.Add(md5hash);
+        root.Options.Add(onlineId);
+
+        root.SetAction(parsed =>
+        {
+            var parsedArgs = new Args
+            {
+                LazerPath = parsed.GetValue(lazerPath)?.FullName ?? Api.GetDefaultLazerPath(),
+                OutPath = parsed.GetRequiredValue(outPath).FullName,
+                ReplayPath = parsed.GetValue(replayPath)?.FullName,
+                IsCopy = parsed.GetValue(isCopy),
+                All = parsed.GetValue(all),
+                Validate = parsed.GetValue(validate),
+                MD5Hash = parsed.GetValue(md5hash),
+                OnlineID = parsed.GetValue(onlineId),
+            };
+
+            Run(parsedArgs);
+
+            return 0;
+        });
+
+        root.Parse(_args).Invoke();
     }
 }

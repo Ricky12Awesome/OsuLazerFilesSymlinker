@@ -130,6 +130,6 @@ jobs:
             artifacts/win-x64/*
             artifacts/linux-x64/*
             artifacts/osx-x64/*
-            # artifacts/osx-arm64/* # Uncomment if you enabled osx-arm64
+            artifacts/osx-arm64/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

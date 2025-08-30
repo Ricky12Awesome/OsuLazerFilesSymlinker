@@ -9,7 +9,8 @@ on:
     
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  PROJECT_FILE: "OsuLazerFilesSymlinker.csproj"
+  PROJECT_FILE: OsuLazerFilesSymlinker.csproj
+  EXE_NAME: OsuLazerFilesSymlinker
 
 jobs:
   artifact:
@@ -21,15 +22,22 @@ jobs:
           - os: ubuntu-latest
             os-name: Linux x64
             rid: linux-x64
+            ext:
+
           - os: windows-latest
             os-name: Windows x64
             rid: win-x64
+            ext: .exe
+            
           - os: macos-latest
             os-name: MacOS x64
             rid: osx-x64
+            ext:
+
           - os: macos-latest
             os-name: MacOS ARM
             rid: osx-arm64
+            ext:
 
     steps:
       - name: Checkout code
@@ -65,12 +73,17 @@ jobs:
             -p:PublishSingleFile=true \
             -p:Version=${{ steps.get_version.outputs.VERSION }}    
         # /p:IncludeNativeLibrariesForSelfExtract=true
-
+        
+      - name: Rename Exe
+        shell: bash
+        run: mv build/${{ matrix.job.rid }}/${{ env.EXE_NAME }}${{ matrix.job.ext }} build/${{ matrix.job.rid }}/${{ env.EXE_NAME }}-${{ matrix.job.rid }}${{ matrix.job.ext }}
+      
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.job.rid }}
-          path: build/${{ matrix.job.rid }}/*
+          path: build/${{ matrix.job.rid }}/${{ env.EXE_NAME }}${{ matrix.job.ext }}
+#          path: build/${{ matrix.job.rid }}/*
 
   create-release:
     runs-on: ubuntu-latest

@@ -16,6 +16,7 @@ using Realms;
 
 namespace OsuLazerFilesSymlinker;
 
+[Preserve(AllMembers = true)]
 public class BeatmapSet : RealmObject
 {
     [PrimaryKey] public Guid ID { get; private set; }
@@ -23,6 +24,7 @@ public class BeatmapSet : RealmObject
     public IList<RealmNamedFileUsage> Files { get; } = null!;
 }
 
+[Preserve(AllMembers = true)]
 public class BeatmapMetadata : RealmObject
 {
     public string Title { get; private set; } = null!;
@@ -32,6 +34,7 @@ public class BeatmapMetadata : RealmObject
     public string Source { get; private set; } = null!;
 }
 
+[Preserve(AllMembers = true)]
 public class Beatmap : RealmObject
 {
     [PrimaryKey] public Guid ID { get; private set; }
@@ -42,23 +45,27 @@ public class Beatmap : RealmObject
     public BeatmapSet BeatmapSet { get; private set; } = null!;
 }
 
+[Preserve(AllMembers = true)]
 public class RealmNamedFileUsage : EmbeddedObject
 {
     public File File { get; private set; } = null!;
     public string Filename { get; private set; } = null!;
 }
 
+[Preserve(AllMembers = true)]
 public class File : RealmObject
 {
     [PrimaryKey] public string Hash { get; private set; } = null!;
 }
 
+[Preserve(AllMembers = true)]
 public record FileOutput
 {
     public required string Filename { get; init; }
     public required string Path { get; init; }
 }
 
+[Preserve(AllMembers = true)]
 static class Api
 {
     public static Realm Realm { get; private set; } = null!;
@@ -217,8 +224,11 @@ static class Api
     }
 }
 
+[Preserve(AllMembers = true)]
+
 internal static class Program
 {
+    [Preserve(AllMembers = true)]
     public class Args
     {
         public required string LazerPath { get; init; }
@@ -230,7 +240,7 @@ internal static class Program
         public string? MD5Hash { get; init; }
         public long OnlineID { get; init; }
     }
-
+    
     private static void Run(Args args)
     {
         Api.Init(args.LazerPath, args.OutPath);

@@ -6,7 +6,10 @@ on:
       - 'v*.*.*'
 
   workflow_dispatch: 
-    
+
+permissions:
+  contents: write
+
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   PROJECT_FILE: OsuLazerFilesSymlinker.csproj

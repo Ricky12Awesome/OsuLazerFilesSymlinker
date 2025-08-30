@@ -61,9 +61,9 @@ jobs:
             -c Release \
             -r ${{ matrix.job.rid }} \
             -o build/${{ matrix.job.rid }} \
-            /p:PublishAot=true \
-            /p:PublishSingleFile=true \
-            /p:Version=${{ steps.get_version.outputs.VERSION }}    
+            -p:PublishAot=true \
+            -p:PublishSingleFile=true \
+            -p:Version=${{ steps.get_version.outputs.VERSION }}    
         # /p:IncludeNativeLibrariesForSelfExtract=true
 
       - name: Upload Artifact

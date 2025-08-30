@@ -63,8 +63,8 @@ jobs:
             -o build/${{ matrix.job.rid }} \
             /p:PublishAot=true \
             /p:PublishSingleFile=true \
-            /p:Version=${{ steps.get_version.outputs.VERSION }} # Pass version
-            # /p:IncludeNativeLibrariesForSelfExtract=true # Often not needed for AOT
+            /p:Version=${{ steps.get_version.outputs.VERSION }}    
+        # /p:IncludeNativeLibrariesForSelfExtract=true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4

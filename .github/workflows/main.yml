@@ -126,10 +126,9 @@ jobs:
           name: Release ${{ steps.get_version.outputs.VERSION }}
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
           files: |
             artifacts/win-x64/*
             artifacts/linux-x64/*
             artifacts/osx-x64/*
             artifacts/osx-arm64/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,7 +5,8 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <PublishAot>true</PublishAot>
+<!--        <PublishAot>true</PublishAot>-->
+<!--        <PublishAotUsingRuntimePack>true</PublishAotUsingRuntimePack>-->
         <EnableDllExport>true</EnableDllExport>
         <InvariantGlobalization>true</InvariantGlobalization>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -15,5 +16,5 @@
       <PackageReference Include="Realm" Version="20.1.0" />
       <PackageReference Include="System.CommandLine" Version="2.0.0-beta7.25380.108" />
     </ItemGroup>
-
+    
 </Project>

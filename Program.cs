@@ -292,28 +292,24 @@ internal static class Program
 
             foreach (var beatmap in set.Beatmaps)
             {
-                var beatmapRoot = new JsonObject();
-
-                beatmapRoot["MD5Hash"] = beatmap.MD5Hash;
-                beatmapRoot["OnlineID"] = beatmap.OnlineID;
-                beatmapRoot["Title"] = beatmap.Metadata.Title;
-                beatmapRoot["TitleUnicode"] = beatmap.Metadata.TitleUnicode != string.Empty
-                    ? beatmap.Metadata.TitleUnicode
-                    : null;
-
-                beatmapRoot["Artist"] = beatmap.Metadata.Artist;
-
-                beatmapRoot["ArtistUnicode"] = beatmap.Metadata.ArtistUnicode != string.Empty
-                    ? beatmap.Metadata.ArtistUnicode
-                    : null;
-
-                beatmapRoot["Source"] = beatmap.Metadata.Source != string.Empty ? beatmap.Metadata.Source : null;
-
-                beatmapRoot["AudioFile"] = beatmap.Metadata.AudioFile;
-
-                beatmapRoot["BackgroundFile"] = beatmap.Metadata.BackgroundFile != string.Empty
-                    ? beatmap.Metadata.BackgroundFile
-                    : null;
+                var beatmapRoot = new JsonObject
+                {
+                    ["MD5Hash"] = beatmap.MD5Hash,
+                    ["OnlineID"] = beatmap.OnlineID,
+                    ["Title"] = beatmap.Metadata.Title,
+                    ["TitleUnicode"] = beatmap.Metadata.TitleUnicode != string.Empty
+                        ? beatmap.Metadata.TitleUnicode
+                        : null,
+                    ["Artist"] = beatmap.Metadata.Artist,
+                    ["ArtistUnicode"] = beatmap.Metadata.ArtistUnicode != string.Empty
+                        ? beatmap.Metadata.ArtistUnicode
+                        : null,
+                    ["Source"] = beatmap.Metadata.Source != string.Empty ? beatmap.Metadata.Source : null,
+                    ["AudioFile"] = beatmap.Metadata.AudioFile,
+                    ["BackgroundFile"] = beatmap.Metadata.BackgroundFile != string.Empty
+                        ? beatmap.Metadata.BackgroundFile
+                        : null
+                };
 
                 beatmapsRoot.Add(beatmapRoot);
             }

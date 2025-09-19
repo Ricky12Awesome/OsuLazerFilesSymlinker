@@ -11,4 +11,4 @@ client-classes
 client.realm
 client.realm.lock
 *.user
-out
+*out*

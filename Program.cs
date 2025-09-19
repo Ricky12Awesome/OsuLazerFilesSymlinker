@@ -3,6 +3,8 @@
 using System.CommandLine;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Realms;
 
 // ReSharper disable InvertIf
@@ -22,6 +24,7 @@ public class BeatmapSet : RealmObject
     [PrimaryKey] public Guid ID { get; private set; }
     [Indexed] public long OnlineID { get; private set; }
     public IList<RealmNamedFileUsage> Files { get; } = null!;
+    public IList<Beatmap> Beatmaps { get; } = null!;
 }
 
 [Preserve(AllMembers = true)]
@@ -32,6 +35,8 @@ public class BeatmapMetadata : RealmObject
     public string Artist { get; private set; } = null!;
     public string ArtistUnicode { get; private set; } = null!;
     public string Source { get; private set; } = null!;
+    public string AudioFile { get; private set; } = null!;
+    public string BackgroundFile { get; private set; } = null!;
 }
 
 [Preserve(AllMembers = true)]
@@ -56,6 +61,8 @@ public class RealmNamedFileUsage : EmbeddedObject
 public class File : RealmObject
 {
     [PrimaryKey] public string Hash { get; private set; } = null!;
+
+    [Ignored] public string Path => System.IO.Path.Join(Hash[..1], Hash[..2], Hash);
 }
 
 [Preserve(AllMembers = true)]
@@ -71,9 +78,7 @@ static class Api
     public static Realm Realm { get; private set; } = null!;
     private static string LazerPath { get; set; } = null!;
 
-    private static string OutPath { get; set; } = null!;
-
-    public static void Init(string? _lazerPath, string outPath)
+    public static void Init(string? _lazerPath)
     {
         var lazerPath = _lazerPath ?? GetDefaultLazerPath();
         var realmPath = Path.Join(lazerPath, "client.realm");
@@ -82,16 +87,6 @@ static class Api
         if (!Path.Exists(lazerPath)) throw new FileNotFoundException(lazerPath);
         if (!Path.Exists(realmPath)) throw new FileNotFoundException(realmPath);
         if (!Path.Exists(filesPath)) throw new FileNotFoundException(filesPath);
-
-        if (System.IO.File.Exists(outPath))
-        {
-            throw new FileLoadException("not a directory", outPath);
-        }
-
-        if (!Directory.Exists(outPath))
-        {
-            Directory.CreateDirectory(outPath);
-        }
 
         var config = new RealmConfiguration(realmPath)
         {
@@ -109,7 +104,6 @@ static class Api
 
         Realm = Realm.GetInstance(config);
         LazerPath = lazerPath;
-        OutPath = outPath;
     }
 
     // https://osu.ppy.sh/wiki/en/Client/Release_stream/Lazer/File_storage
@@ -154,16 +148,16 @@ static class Api
         return Encoding.UTF8.GetString(buf[7..]);
     }
 
-    public static void ValidatePaths()
+    public static void ValidatePaths(string outPath)
     {
         Console.WriteLine("Validating paths, this can take a while...");
 
-        var files = Directory.EnumerateFiles(OutPath, "*", SearchOption.AllDirectories);
+        var files = Directory.EnumerateFiles(outPath, "*", SearchOption.AllDirectories);
 
         foreach (var file in files)
         {
             var info = System.IO.File.ResolveLinkTarget(file, false);
-            
+
             if (info is not null && !info.Exists)
             {
                 Console.WriteLine($"Removing {file}");
@@ -171,7 +165,7 @@ static class Api
             }
         }
 
-        var dirs = Directory.EnumerateDirectories(OutPath, "*", SearchOption.AllDirectories);
+        var dirs = Directory.EnumerateDirectories(outPath, "*", SearchOption.AllDirectories);
 
         foreach (var dir in dirs)
         {
@@ -185,23 +179,23 @@ static class Api
         Console.WriteLine("Validated paths");
     }
 
-    public static void CreateLinksAll(bool isCopy = false)
+    public static void CreateLinksAll(string outPath, bool isCopy = false)
     {
         var beatmaps = Realm.All<Beatmap>();
 
         foreach (var beatmap in beatmaps)
         {
-            CreateLinks(beatmap, isCopy);
+            CreateLinks(beatmap, outPath, isCopy);
         }
     }
 
-    public static void CreateLinks(Beatmap beatmap, bool isCopy = false)
+    public static void CreateLinks(Beatmap beatmap, string outPath, bool isCopy = false)
     {
         var mapFiles = beatmap.BeatmapSet.Files;
 
         // just id because parsing title and artist can be invalid for paths
         var dirname = beatmap.BeatmapSet.OnlineID.ToString();
-        var dirpath = Path.Join(OutPath, dirname);
+        var dirpath = Path.Join(outPath, dirname);
 
         if (Directory.Exists(dirpath))
         {
@@ -237,24 +231,141 @@ internal static class Program
     public class Args
     {
         public required string LazerPath { get; init; }
+        public const string DefaultOutPath = "./YOU-CAN-RENAME-THIS-AND-MOVE-THIS-ON-SAME-DRIVE";
         public required string OutPath { get; init; }
-        public string? ReplayPath { get; init; }
-        public bool IsCopy { get; init; }
-        public bool IsQuiet { get; init; }
-        public bool IsVerbose { get; init; }
-        public bool All { get; init; }
-        public bool Validate { get; init; }
-        public string? MD5Hash { get; init; }
-        public long? OnlineID { get; init; }
+        public required string? ReplayPath { get; init; }
+        public required bool IsCopy { get; init; }
+        public required bool IsQuiet { get; init; }
+        public required bool IsVerbose { get; init; }
+        public required bool All { get; init; }
+        public required ExportFormat? Export { get; init; }
+        public required bool Validate { get; init; }
+        public required string? MD5Hash { get; init; }
+        public required long? OnlineID { get; init; }
 
         public bool CannotRun()
         {
-            return this is { All: false, Validate: false, MD5Hash: null, OnlineID: null, ReplayPath: null };
+            return this is
+            {
+                All: false,
+                Validate: false,
+                MD5Hash: null,
+                OnlineID: null,
+                ReplayPath: null,
+                Export: null,
+            };
         }
-        
+
         public bool CannotContinue()
         {
             return this is { All: false, MD5Hash: null, OnlineID: null, ReplayPath: null };
+        }
+
+        public enum ExportFormat
+        {
+            Json,
+            PrettyJson,
+            Binary
+        }
+    }
+
+    private static void ExportJson(string? outPath, bool pretty)
+    {
+        Console.WriteLine("Exporting...");
+        var sets = Api.Realm.All<BeatmapSet>();
+        var root = new JsonObject();
+        var beatmapSetsRoot = new JsonArray();
+
+        foreach (var set in sets)
+        {
+            var beatmapSetRoot = new JsonObject();
+            var beatmapsRoot = new JsonArray();
+            var filesRoot = new JsonObject();
+
+            foreach (var file in set.Files)
+            {
+                filesRoot[file.Filename] = file.File.Path;
+            }
+
+            beatmapSetRoot.Add("OnlineID", set.OnlineID);
+            beatmapSetRoot.Add("Files", filesRoot);
+
+            foreach (var beatmap in set.Beatmaps)
+            {
+                var beatmapRoot = new JsonObject();
+
+                beatmapRoot["MD5Hash"] = beatmap.MD5Hash;
+                beatmapRoot["OnlineID"] = beatmap.OnlineID;
+                beatmapRoot["Title"] = beatmap.Metadata.Title;
+                beatmapRoot["TitleUnicode"] = beatmap.Metadata.TitleUnicode != string.Empty
+                    ? beatmap.Metadata.TitleUnicode
+                    : null;
+
+                beatmapRoot["Artist"] = beatmap.Metadata.Artist;
+
+                beatmapRoot["ArtistUnicode"] = beatmap.Metadata.ArtistUnicode != string.Empty
+                    ? beatmap.Metadata.ArtistUnicode
+                    : null;
+
+                beatmapRoot["Source"] = beatmap.Metadata.Source != string.Empty ? beatmap.Metadata.Source : null;
+
+                beatmapRoot["AudioFile"] = beatmap.Metadata.AudioFile;
+
+                beatmapRoot["BackgroundFile"] = beatmap.Metadata.BackgroundFile != string.Empty
+                    ? beatmap.Metadata.BackgroundFile
+                    : null;
+
+                beatmapsRoot.Add(beatmapRoot);
+            }
+
+            beatmapSetRoot.Add("Beatmaps", beatmapsRoot);
+            beatmapSetsRoot.Add(beatmapSetRoot);
+        }
+
+        root.Add("Beatsets", beatmapSetsRoot);
+
+        var json = root.ToJsonString(new JsonSerializerOptions
+        {
+            WriteIndented = pretty
+        });
+
+        if (outPath is not null)
+        {
+            Console.WriteLine($"Saving to {outPath}...");
+
+            var file = System.IO.File.CreateText(outPath);
+            file.Write(json);
+            file.Close();
+            Console.WriteLine($"Done.");
+        }
+        else
+        {
+            Console.WriteLine(json);
+        }
+    }
+
+    private static void RunExport(Args.ExportFormat format, string? outPath)
+    {
+        outPath = outPath is Args.DefaultOutPath ? null : outPath;
+
+        if (Directory.Exists(outPath))
+        {
+            Console.WriteLine($"{outPath} is a directory not a file");
+            return;
+        }
+
+        switch (format)
+        {
+            case Args.ExportFormat.Json:
+                ExportJson(outPath, false);
+                break;
+            case Args.ExportFormat.PrettyJson:
+                ExportJson(outPath, true);
+                break;
+            case Args.ExportFormat.Binary:
+                // TODO: Binary Format
+                Console.WriteLine("Currently unsupported");
+                break;
         }
     }
 
@@ -266,16 +377,32 @@ internal static class Program
             return;
         }
 
-        Api.Init(args.LazerPath, args.OutPath);
+        Api.Init(args.LazerPath);
 
         if (args.IsQuiet)
         {
             Console.SetOut(TextWriter.Null);
         }
 
+        if (args.Export is not null)
+        {
+            RunExport(args.Export.Value, args.OutPath);
+            return;
+        }
+
+        if (System.IO.File.Exists(args.OutPath))
+        {
+            throw new FileLoadException("not a directory", args.OutPath);
+        }
+
+        if (!Directory.Exists(args.OutPath))
+        {
+            Directory.CreateDirectory(args.OutPath);
+        }
+
         if (args.Validate)
         {
-            Api.ValidatePaths();
+            Api.ValidatePaths(args.OutPath);
 
             if (args.CannotContinue())
             {
@@ -285,7 +412,7 @@ internal static class Program
 
         if (args.All)
         {
-            Api.CreateLinksAll(args.IsCopy);
+            Api.CreateLinksAll(args.OutPath, args.IsCopy);
         }
 
         if (args.MD5Hash is not null || args.ReplayPath is not null)
@@ -294,7 +421,7 @@ internal static class Program
 
             var beatmap = Api.Realm.All<Beatmap>().First(b => b.MD5Hash == md5hash);
 
-            Api.CreateLinks(beatmap, args.IsCopy);
+            Api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
 
             return;
         }
@@ -303,7 +430,7 @@ internal static class Program
         {
             var beatmap = Api.Realm.All<Beatmap>().First(b => b.OnlineID == args.OnlineID);
 
-            Api.CreateLinks(beatmap, args.IsCopy);
+            Api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
         }
     }
 
@@ -342,11 +469,10 @@ internal static class Program
             DefaultValueFactory = _ => new DirectoryInfo(Api.GetDefaultLazerPath()),
             Description = "Path to lazer directory"
         };
-        Option<DirectoryInfo> outPath = new("--out", "-o")
+        Option<string> outPath = new("--out", "-o")
         {
-            DefaultValueFactory = _ =>
-                new DirectoryInfo("./YOU-CAN-RENAME-THIS-AND-MOVE-THIS-ON-SAME-DRIVE"),
-            Description = "Path to output directory"
+            DefaultValueFactory = _ => Args.DefaultOutPath,
+            Description = "Path to output directory or file (file is for exports)"
         };
         Option<FileInfo?> replayPath = new("--replay", "-r")
         {
@@ -373,6 +499,11 @@ internal static class Program
             DefaultValueFactory = _ => false,
             Description = "symlink all beatmaps, enabled if ran with no other args"
         };
+        Option<Args.ExportFormat> isExport = new("--export")
+        {
+            DefaultValueFactory = _ => Args.ExportFormat.Json,
+            Description = "Exports to a specified format, if no out file is specified prints to stdout"
+        };
         Option<bool> validate = new("--validate", "-v")
         {
             DefaultValueFactory = _ => false,
@@ -396,12 +527,12 @@ internal static class Program
         root.Options.Add(isQuiet);
         root.Options.Add(isVerbose);
         root.Options.Add(all);
+        root.Options.Add(isExport);
         root.Options.Add(validate);
         root.Options.Add(md5hash);
         root.Options.Add(onlineId);
 
         var defLazerPath = lazerPath.DefaultValueFactory(null!).FullName;
-        var defOutPath = outPath.DefaultValueFactory(null!).FullName;
 
         if (!Directory.Exists(defLazerPath))
         {
@@ -429,6 +560,7 @@ internal static class Program
                     IsQuiet = false,
                     IsVerbose = true,
                     All = true,
+                    Export = null,
                     Validate = true,
                     MD5Hash = null,
                     OnlineID = null,
@@ -475,6 +607,8 @@ internal static class Program
             // double-clicking exe directly
             case 0:
             {
+                var defOutPath = new DirectoryInfo(outPath.DefaultValueFactory(null!)).FullName;
+
                 var args = new Args
                 {
                     LazerPath = defLazerPath,
@@ -484,6 +618,7 @@ internal static class Program
                     IsQuiet = false,
                     IsVerbose = true,
                     All = true,
+                    Export = null,
                     Validate = false,
                     MD5Hash = null,
                     OnlineID = null,
@@ -518,12 +653,13 @@ internal static class Program
             var parsedArgs = new Args
             {
                 LazerPath = parsed.GetValue(lazerPath)?.FullName!,
-                OutPath = parsed.GetValue(outPath)?.FullName!,
+                OutPath = parsed.GetValue(outPath)!,
                 ReplayPath = parsed.GetValue(replayPath)?.FullName,
                 IsCopy = parsed.GetValue(isCopy),
                 IsQuiet = parsed.GetValue(isQuiet),
                 IsVerbose = parsed.GetValue(isVerbose),
                 All = parsed.GetValue(all),
+                Export = parsed.GetValue(isExport),
                 Validate = parsed.GetValue(validate),
                 MD5Hash = parsed.GetValue(md5hash),
                 OnlineID = parsed.GetValue(onlineId),

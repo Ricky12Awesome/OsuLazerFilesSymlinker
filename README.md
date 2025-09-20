@@ -80,7 +80,7 @@ This will export into json (use `PrettyJson` for formated json)
 This will export into binary format (this is experimental)
 
 ```sh
-<executable> -e Binray -o out.json
+<executable> -e Binray -o out.bin
 ```
 
 ---

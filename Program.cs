@@ -190,6 +190,7 @@ static class Api
         {
             CreateLinks(beatmap, outPath, isCopy);
         }
+
         Console.WriteLine("Done.");
     }
 
@@ -278,7 +279,6 @@ internal static class Program
 
     private static void ExportJson(string? outPath, bool pretty)
     {
-        Console.WriteLine("Exporting...");
         var sets = Api.Realm.All<BeatmapSet>();
         var root = new JsonObject();
         var beatmapSetsRoot = new JsonArray();
@@ -347,6 +347,95 @@ internal static class Program
         }
     }
 
+    private static void WriteString(this BinaryWriter writer, string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        writer.Write(bytes.Length);
+        writer.Write(bytes);
+    }
+
+    /// <summary>
+    /// Format
+    /// <code>
+    /// int Count
+    /// [Set...]
+    ///
+    /// 
+    /// Set:
+    /// long OnlineID
+    /// int Count
+    /// [File...]
+    /// int Count
+    /// [Beatmap...]
+    ///
+    /// 
+    /// File:
+    /// string Filename
+    /// string Filepath
+    ///
+    /// 
+    /// Beatmap:
+    /// string MD5Hash
+    /// signed long OnlineID
+    /// string Title
+    /// string TitleUnicode
+    /// string Artist
+    /// string ArtistUnicode
+    /// string Source
+    /// string AudioFile
+    ///
+    /// 
+    /// string:
+    /// int Length
+    /// [Bytes...] 
+    ///
+    ///
+    /// long = signed 64-bits
+    /// int = signed 32-bits 
+    /// </code>
+    /// 
+    /// </summary>
+    /// <param name="outPath"></param>
+    private static void ExportBinary(string? outPath)
+    {
+        var sets = Api.Realm.All<BeatmapSet>().ToList();
+        var stream = outPath is not null
+            ? new FileStream(outPath, FileMode.OpenOrCreate)
+            : Console.OpenStandardOutput();
+
+        var writer = new BinaryWriter(stream);
+
+        writer.Write(sets.Count);
+        foreach (var set in sets)
+        {
+            writer.Write(set.OnlineID);
+            writer.Write(set.Files.Count);
+
+            foreach (var file in set.Files)
+            {
+                writer.WriteString(file.Filename);
+                writer.WriteString(file.File.Path);
+            }
+
+            writer.Write(set.Beatmaps.Count);
+            foreach (var beatmap in set.Beatmaps)
+            {
+                writer.WriteString(beatmap.MD5Hash);
+                writer.Write(beatmap.OnlineID);
+                writer.WriteString(beatmap.Metadata.Title);
+                writer.WriteString(beatmap.Metadata.TitleUnicode);
+                writer.WriteString(beatmap.Metadata.Artist);
+                writer.WriteString(beatmap.Metadata.ArtistUnicode);
+                writer.WriteString(beatmap.Metadata.Source);
+                writer.WriteString(beatmap.Metadata.AudioFile);
+                writer.WriteString(beatmap.Metadata.BackgroundFile);
+            }
+        }
+
+        writer.Flush();
+        writer.Close();
+    }
+
     private static void RunExport(Args.ExportFormat format, string? outPath)
     {
         outPath = outPath is Args.DefaultOutPath ? null : outPath;
@@ -366,8 +455,7 @@ internal static class Program
                 ExportJson(outPath, true);
                 break;
             case Args.ExportFormat.Binary:
-                // TODO: Binary Format
-                Console.WriteLine("Currently unsupported");
+                ExportBinary(outPath);
                 break;
         }
     }

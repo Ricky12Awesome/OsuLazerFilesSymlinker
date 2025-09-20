@@ -291,7 +291,7 @@ internal static class Program
 
             foreach (var file in set.Files)
             {
-                filesRoot[file.Filename] = file.File.Path;
+                filesRoot[file.Filename] = file.File.Hash;
             }
 
             beatmapSetRoot.Add("OnlineID", set.OnlineID);
@@ -414,7 +414,7 @@ internal static class Program
             foreach (var file in set.Files)
             {
                 writer.WriteString(file.Filename);
-                writer.WriteString(file.File.Path);
+                writer.WriteString(file.File.Hash);
             }
 
             writer.Write(set.Beatmaps.Count);
@@ -590,7 +590,7 @@ internal static class Program
             DefaultValueFactory = _ => false,
             Description = "symlink all beatmaps, enabled if ran with no other args"
         };
-        Option<Args.ExportFormat?> export = new("--export")
+        Option<Args.ExportFormat?> export = new("--export", "-e")
         {
             DefaultValueFactory = _ => null,
             Description = "Exports to a specified format, if no out file is specified prints to stdout"

@@ -77,8 +77,9 @@ static class Api
 {
     public static Realm Realm { get; private set; } = null!;
     private static string LazerPath { get; set; } = null!;
+    private static bool Verbose { get; set; }
 
-    public static void Init(string? _lazerPath)
+    public static void Init(string? _lazerPath, bool verbose)
     {
         var lazerPath = _lazerPath ?? GetDefaultLazerPath();
         var realmPath = Path.Join(lazerPath, "client.realm");
@@ -104,6 +105,7 @@ static class Api
 
         Realm = Realm.GetInstance(config);
         LazerPath = lazerPath;
+        Verbose = verbose;
     }
 
     // https://osu.ppy.sh/wiki/en/Client/Release_stream/Lazer/File_storage
@@ -181,12 +183,14 @@ static class Api
 
     public static void CreateLinksAll(string outPath, bool isCopy = false)
     {
+        Console.WriteLine("Creating links...");
         var beatmaps = Realm.All<Beatmap>();
 
         foreach (var beatmap in beatmaps)
         {
             CreateLinks(beatmap, outPath, isCopy);
         }
+        Console.WriteLine("Done.");
     }
 
     public static void CreateLinks(Beatmap beatmap, string outPath, bool isCopy = false)
@@ -209,7 +213,10 @@ static class Api
             var src = Path.Join(LazerPath, "files", f.File.Hash[..1], f.File.Hash[..2], f.File.Hash);
             var dst = Path.Join(dirpath, f.Filename);
 
-            Console.WriteLine($"{src} -> \\{dirname}\\{f.Filename}");
+            if (Verbose)
+            {
+                Console.WriteLine($"{src} -> {dirname}/{f.Filename}");
+            }
 
             Directory.CreateDirectory(Directory.GetParent(dst)!.FullName)
                 ;
@@ -373,7 +380,7 @@ internal static class Program
             return;
         }
 
-        Api.Init(args.LazerPath);
+        Api.Init(args.LazerPath, args.IsVerbose);
 
         if (args.IsQuiet)
         {
@@ -495,9 +502,9 @@ internal static class Program
             DefaultValueFactory = _ => false,
             Description = "symlink all beatmaps, enabled if ran with no other args"
         };
-        Option<Args.ExportFormat> isExport = new("--export")
+        Option<Args.ExportFormat?> export = new("--export")
         {
-            DefaultValueFactory = _ => Args.ExportFormat.Json,
+            DefaultValueFactory = _ => null,
             Description = "Exports to a specified format, if no out file is specified prints to stdout"
         };
         Option<bool> validate = new("--validate", "-v")
@@ -523,7 +530,7 @@ internal static class Program
         root.Options.Add(isQuiet);
         root.Options.Add(isVerbose);
         root.Options.Add(all);
-        root.Options.Add(isExport);
+        root.Options.Add(export);
         root.Options.Add(validate);
         root.Options.Add(md5hash);
         root.Options.Add(onlineId);
@@ -655,7 +662,7 @@ internal static class Program
                 IsQuiet = parsed.GetValue(isQuiet),
                 IsVerbose = parsed.GetValue(isVerbose),
                 All = parsed.GetValue(all),
-                Export = parsed.GetValue(isExport),
+                Export = parsed.GetValue(export),
                 Validate = parsed.GetValue(validate),
                 MD5Hash = parsed.GetValue(md5hash),
                 OnlineID = parsed.GetValue(onlineId),

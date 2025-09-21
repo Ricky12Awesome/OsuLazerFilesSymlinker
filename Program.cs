@@ -3,6 +3,7 @@
 using System.CommandLine;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Realms;
@@ -325,11 +326,12 @@ internal static class Program
             beatmapSetsRoot.Add(beatmapSetRoot);
         }
 
-        root.Add("Beatsets", beatmapSetsRoot);
+        root.Add("BeatmapSets", beatmapSetsRoot);
 
         var json = root.ToJsonString(new JsonSerializerOptions
         {
-            WriteIndented = pretty
+            WriteIndented = pretty,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         });
 
         if (outPath is not null)

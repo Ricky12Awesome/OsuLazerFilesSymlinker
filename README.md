@@ -91,7 +91,7 @@ This will export into binary format (this is experimental)
 
 ```json5
 {
-  "Beatsets": [
+  "BeatmapSets": [
     {
       "OnlineID": -1,
       "Files": {

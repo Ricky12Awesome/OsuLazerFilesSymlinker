@@ -356,48 +356,12 @@ internal static class Program
         writer.Write(bytes);
     }
 
-    /// <summary>
-    /// Format
-    /// <code>
-    /// int Count
-    /// [Set...]
-    ///
-    /// 
-    /// Set:
-    /// long OnlineID
-    /// int Count
-    /// [File...]
-    /// int Count
-    /// [Beatmap...]
-    ///
-    /// 
-    /// File:
-    /// string Filename
-    /// string Filepath
-    ///
-    /// 
-    /// Beatmap:
-    /// string MD5Hash
-    /// signed long OnlineID
-    /// string Title
-    /// string TitleUnicode
-    /// string Artist
-    /// string ArtistUnicode
-    /// string Source
-    /// string AudioFile
-    ///
-    /// 
-    /// string:
-    /// int Length
-    /// [Bytes...] 
-    ///
-    ///
-    /// long = signed 64-bits
-    /// int = signed 32-bits 
-    /// </code>
-    /// 
-    /// </summary>
-    /// <param name="outPath"></param>
+    private static void WriteHash(this BinaryWriter writer, string value)
+    {
+        var bytes = Convert.FromHexString(value);
+        writer.Write(bytes);
+    }
+
     private static void ExportBinary(string? outPath)
     {
         var sets = Api.Realm.All<BeatmapSet>().ToList();
@@ -416,13 +380,13 @@ internal static class Program
             foreach (var file in set.Files)
             {
                 writer.WriteString(file.Filename);
-                writer.WriteString(file.File.Hash);
+                writer.WriteHash(file.File.Hash);
             }
 
             writer.Write(set.Beatmaps.Count);
             foreach (var beatmap in set.Beatmaps)
             {
-                writer.WriteString(beatmap.MD5Hash);
+                writer.WriteHash(beatmap.MD5Hash);
                 writer.Write(beatmap.OnlineID);
                 writer.WriteString(beatmap.Metadata.Title);
                 writer.WriteString(beatmap.Metadata.TitleUnicode);

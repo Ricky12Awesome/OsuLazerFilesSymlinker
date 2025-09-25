@@ -123,9 +123,9 @@ This will export into binary format (this is experimental)
     - `signed long` OnlineID
     - `signed int` Files Count
         - `string` Filename
-        - `string` Hash
+        - `32 bytes` Hash
     - `signed int` Beatmap Count
-        - `string` MD5Hash
+        - `16 bytes` MD5Hash
         - `signed long` OnlineID
         - `string` Title
         - `string` TitleUnicode
@@ -147,12 +147,15 @@ Example (simplified)
 1                                                                   // BeatmapSet Count
 -1                                                                  // OnlineID
 2                                                                   // Files Count
-"audio.mp3"                                                         // files index 0
-"47b895484e7751f3ab429694ff6dbf21e774ab023e4f6c5b481476f04ff22f0f"
-"cYsmix - triangles (peppy) [peppy].osu"                            // files index 1
+// Index 0
+"audio.mp3"                                                         // Filename
+"47b895484e7751f3ab429694ff6dbf21e774ab023e4f6c5b481476f04ff22f0f"  // SHA256 Hash (encoded as 32 bytes not string)
+// Index 1
+"cYsmix - triangles (peppy) [peppy].osu"
 "a1556d0801b3a6b175dda32ef546f0ec812b400499f575c44fccbe9c67f9b1e5"
 1                                                                   // Beatmap Count
-"27d9765612170a9517f0a5e8b4613f06"                                  // MD5Hash
+// Index 0
+"27d9765612170a9517f0a5e8b4613f06"                                  // MD5Hash (encoded as 16 bytes not string)
 0                                                                   // OnlineID
 "triangles"                                                         // Title
 "triangles"                                                         // TitleUnicode

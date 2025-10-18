@@ -74,13 +74,13 @@ public record FileOutput
 }
 
 [Preserve(AllMembers = true)]
-static class Api
+class Api
 {
-    public static Realm Realm { get; private set; } = null!;
-    private static string LazerPath { get; set; } = null!;
-    private static bool Verbose { get; set; }
+    public Realm Realm { get; private set; } = null!;
+    public string LazerPath { get; private set; } = null!;
+    public bool Verbose { get; private set; }
 
-    public static void Init(string? _lazerPath, bool verbose)
+    public Api(string? _lazerPath, bool verbose)
     {
         var lazerPath = _lazerPath ?? GetDefaultLazerPath();
         var realmPath = Path.Join(lazerPath, "client.realm");
@@ -137,7 +137,7 @@ static class Api
     }
 
     // https://osu.ppy.sh/wiki/en/Client/File_formats/osr_%28file_format%29
-    public static string GetMD5HashFromReplay(string? path)
+    public string GetMD5HashFromReplay(string? path)
     {
         if (!Path.Exists(path)) throw new FileLoadException("Path to replay file not found");
 
@@ -151,7 +151,7 @@ static class Api
         return Encoding.UTF8.GetString(buf[7..]);
     }
 
-    public static void ValidatePaths(string outPath)
+    public void ValidatePaths(string outPath)
     {
         Console.WriteLine("Validating paths, this can take a while...");
 
@@ -182,7 +182,7 @@ static class Api
         Console.WriteLine("Validated paths");
     }
 
-    public static void CreateLinksAll(string outPath, bool isCopy = false)
+    public void CreateLinksAll(string outPath, bool isCopy = false)
     {
         Console.WriteLine("Creating links...");
         var beatmaps = Realm.All<Beatmap>();
@@ -195,7 +195,7 @@ static class Api
         Console.WriteLine("Done.");
     }
 
-    public static void CreateLinks(BeatmapSet set, string outPath, bool isCopy = false)
+    public void CreateLinks(BeatmapSet set, string outPath, bool isCopy = false)
     {
         var dirname = set.OnlineID.ToString();
         var dirpath = Path.Join(outPath, dirname);
@@ -229,7 +229,7 @@ static class Api
         }
     }
 
-    public static void CreateLinks(Beatmap beatmap, string outPath, bool isCopy = false)
+    public void CreateLinks(Beatmap beatmap, string outPath, bool isCopy = false)
     {
         var mapFiles = beatmap.BeatmapSet.Files;
 
@@ -274,6 +274,7 @@ internal static class Program
     public class Args
     {
         public required string LazerPath { get; init; }
+        public required string? DiffLazerPath { get; init; }
         public const string DefaultOutPath = "./YOU-CAN-RENAME-THIS-AND-MOVE-THIS-ON-SAME-DRIVE";
         public required string OutPath { get; init; }
         public required string? ReplayPath { get; init; }
@@ -291,6 +292,7 @@ internal static class Program
             return this is
             {
                 All: false,
+                DiffLazerPath: null,
                 Validate: false,
                 MD5Hash: null,
                 OnlineID: null,
@@ -301,7 +303,7 @@ internal static class Program
 
         public bool CannotContinue()
         {
-            return this is { All: false, MD5Hash: null, OnlineID: null, ReplayPath: null };
+            return this is { All: false, DiffLazerPath: null, MD5Hash: null, OnlineID: null, ReplayPath: null };
         }
 
         public enum ExportFormat
@@ -313,9 +315,9 @@ internal static class Program
         }
     }
 
-    private static void ExportJson(string? outPath, bool pretty)
+    private static void ExportJson(this Api api, string? outPath, bool pretty)
     {
-        var sets = Api.Realm.All<BeatmapSet>();
+        var sets = api.Realm.All<BeatmapSet>();
         var root = new JsonObject();
         var beatmapSetsRoot = new JsonArray();
 
@@ -411,9 +413,9 @@ internal static class Program
         writer.Write(bytes);
     }
 
-    private static void ExportBinary(string? outPath, bool mode)
+    private static void ExportBinary(this Api api, string? outPath, bool mode)
     {
-        var sets = Api.Realm.All<BeatmapSet>().ToList();
+        var sets = api.Realm.All<BeatmapSet>().ToList();
         var stream = outPath is not null
             ? new FileStream(outPath, FileMode.OpenOrCreate)
             : Console.OpenStandardOutput();
@@ -452,7 +454,7 @@ internal static class Program
         writer.Close();
     }
 
-    private static void RunExport(Args.ExportFormat format, string? outPath)
+    private static void RunExport(this Api api, Args.ExportFormat format, string? outPath)
     {
         outPath = outPath is Args.DefaultOutPath ? null : outPath;
 
@@ -465,18 +467,37 @@ internal static class Program
         switch (format)
         {
             case Args.ExportFormat.Json:
-                ExportJson(outPath, false);
+                api.ExportJson(outPath, false);
                 break;
             case Args.ExportFormat.PrettyJson:
-                ExportJson(outPath, true);
+                api.ExportJson(outPath, true);
                 break;
             case Args.ExportFormat.Binary1:
-                ExportBinary(outPath, true);
+                api.ExportBinary(outPath, true);
                 break;
             case Args.ExportFormat.Binary2:
-                ExportBinary(outPath, false);
+                api.ExportBinary(outPath, false);
                 break;
         }
+    }
+
+    private static void RunDiff(this Api api, string outPath, string diffLazerPath, bool isCopy)
+    {
+        var diff = new Api(diffLazerPath, api.Verbose);
+        var lookup = diff.Realm.All<BeatmapSet>().ToLookup(set => set.OnlineID);
+        var main = api.Realm.All<BeatmapSet>();
+
+        Console.WriteLine("Creating links (difference)...");
+        foreach (var set in main)
+        {
+            if (lookup.Contains(set.OnlineID))
+            {
+                continue;
+            }
+
+            api.CreateLinks(set, outPath, isCopy);
+        }
+        Console.WriteLine("Done.");
     }
 
     private static void Run(Args args)
@@ -487,7 +508,7 @@ internal static class Program
             return;
         }
 
-        Api.Init(args.LazerPath, args.IsVerbose);
+        var api = new Api(args.LazerPath, args.IsVerbose);
 
         if (args.IsQuiet)
         {
@@ -496,7 +517,7 @@ internal static class Program
 
         if (args.Export is not null)
         {
-            RunExport(args.Export.Value, args.OutPath);
+            api.RunExport(args.Export.Value, args.OutPath);
             return;
         }
 
@@ -512,7 +533,7 @@ internal static class Program
 
         if (args.Validate)
         {
-            Api.ValidatePaths(args.OutPath);
+            api.ValidatePaths(args.OutPath);
 
             if (args.CannotContinue())
             {
@@ -520,34 +541,43 @@ internal static class Program
             }
         }
 
+        if (args.DiffLazerPath is not null)
+        {
+            api.RunDiff(args.OutPath, args.DiffLazerPath, args.IsCopy);
+
+            return;
+        }
+
         if (args.All)
         {
-            Api.CreateLinksAll(args.OutPath, args.IsCopy);
+            api.CreateLinksAll(args.OutPath, args.IsCopy);
+
+            return;
         }
 
         if (args.MD5Hash is not null || args.ReplayPath is not null)
         {
-            var md5hash = args.MD5Hash ?? Api.GetMD5HashFromReplay(args.ReplayPath);
+            var md5hash = args.MD5Hash ?? api.GetMD5HashFromReplay(args.ReplayPath);
 
-            var beatmap = Api.Realm.All<Beatmap>().First(b => b.MD5Hash == md5hash);
+            var beatmap = api.Realm.All<Beatmap>().First(b => b.MD5Hash == md5hash);
 
-            Api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
+            api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
 
             return;
         }
-        
-        if (args.OnlineID != 0)
+
+        if (args.OnlineID is not null)
         {
-            // Why do I need this? 
-            var onlineID = args.OnlineID ?? 0;
+            var onlineID = args.OnlineID;
+            // Why do I need this?
             Func<IList<Beatmap>, bool> hasAny = maps => maps.Any(map => map.OnlineID == onlineID);
 
-            var beatmap = Api.Realm.All<BeatmapSet>().First(b =>
+            var beatmap = api.Realm.All<BeatmapSet>().First(b =>
                 b.OnlineID == onlineID || hasAny(b.Beatmaps));
             // this will not work "Unhandled exception: System.NotSupportedException: The method 'Any' is not supported"
             // b.OnlineID == onlineID || b.Beatmaps.Any(map => map.OnlineID == onlineID));
 
-            Api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
+            api.CreateLinks(beatmap, args.OutPath, args.IsCopy);
         }
     }
 
@@ -585,6 +615,11 @@ internal static class Program
         {
             DefaultValueFactory = _ => new DirectoryInfo(Api.GetDefaultLazerPath()),
             Description = "Path to lazer directory"
+        };
+        Option<DirectoryInfo?> diffLazerPath = new("--diff")
+        {
+            DefaultValueFactory = _ => null,
+            Description = "Other Path to lazer directory (will implicitly use --all)"
         };
         Option<string> outPath = new("--out", "-o")
         {
@@ -638,6 +673,7 @@ internal static class Program
         };
 
         root.Options.Add(lazerPath);
+        root.Options.Add(diffLazerPath);
         root.Options.Add(outPath);
         root.Options.Add(replayPath);
         root.Options.Add(isCopy);
@@ -671,6 +707,7 @@ internal static class Program
                 var args = new Args
                 {
                     LazerPath = defLazerPath,
+                    DiffLazerPath = null,
                     OutPath = Path.GetFullPath(_args[0]),
                     ReplayPath = null,
                     IsCopy = false,
@@ -729,6 +766,7 @@ internal static class Program
                 var args = new Args
                 {
                     LazerPath = defLazerPath,
+                    DiffLazerPath = null,
                     OutPath = defOutPath,
                     ReplayPath = null,
                     IsCopy = false,
@@ -770,6 +808,7 @@ internal static class Program
             var parsedArgs = new Args
             {
                 LazerPath = parsed.GetValue(lazerPath)?.FullName!,
+                DiffLazerPath = parsed.GetValue(diffLazerPath)?.FullName!,
                 OutPath = parsed.GetValue(outPath)!,
                 ReplayPath = parsed.GetValue(replayPath)?.FullName,
                 IsCopy = parsed.GetValue(isCopy),

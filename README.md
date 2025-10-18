@@ -67,6 +67,13 @@ This will link only the beatmap used in this replay
 ```
 
 ---
+This will link the difference between two lazer installs
+
+```sh
+<executable> -o ./songs --diff path/to/other/lazer/install
+``` 
+
+---
 
 ## Export
 

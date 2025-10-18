@@ -12,3 +12,4 @@ client.realm
 client.realm.lock
 *.user
 *out*
+*export*

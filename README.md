@@ -118,13 +118,15 @@ This will export into binary format (this is experimental)
 ```
 
 #### Binary (Experimental)
-
-- `signed int` BeatmapSet Count
+- `bool` BinaryFormat Mode (this might be int later if I add more modes)
+    - `Binary1` `true` String are encoded using 1 byte as length
+    - `Binary2` `false` Strings are encoded using 4 bytes as length
+- `unsigned int` BeatmapSet Count
     - `signed long` OnlineID
-    - `signed int` Files Count
+    - `unsigned int` Files Count
         - `string` Filename
         - `32 bytes` Hash
-    - `signed int` Beatmap Count
+    - `unsigned int` Beatmap Count
         - `16 bytes` MD5Hash
         - `signed long` OnlineID
         - `string` Title
@@ -137,13 +139,15 @@ This will export into binary format (this is experimental)
 
 
 - `string` type is formatted like
-    - `signed int` Length
+    - `unsigned byte` Length on `Binary1` (Fine in 99% of cases)
+    - `unsigned int` Length on `Binary2`
     - `bytes` UTF-8 Data
     - if Length is zero it will just be `signed int 0`
 
 Example (simplified)
 
 ```csharp
+true                                                                // Mode
 1                                                                   // BeatmapSet Count
 -1                                                                  // OnlineID
 2                                                                   // Files Count
